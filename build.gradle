@@ -122,7 +122,6 @@ publishMods {
 				}
 			}
 
-			requires("polymer")
 		}
 	}
 
@@ -138,7 +137,6 @@ publishMods {
 				}
 			}
 
-			requires("polymer")
 		}
 	}
 }
