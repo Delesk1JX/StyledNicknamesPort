@@ -1,0 +1,2 @@
+// Each build folder is a project of its own, so the root project name only has to be unique.
+rootProject.name = 'stylednicknames-neoforge-26.1.2'

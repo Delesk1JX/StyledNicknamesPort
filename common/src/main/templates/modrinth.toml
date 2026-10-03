@@ -1,0 +1,12 @@
+# Mod metadata read by Modrinth from inside the jar. Placeholders are filled in by processResources.
+modId = "${mod_id}"
+version = "${mod_version}"
+name = "${mod_name}"
+description = '''${mod_description}'''
+author = "${mod_authors}"
+contactInfo.source = "${original_project_url}"
+contactInfo.issues = "${issues_url}"
+license = "${mod_license}"
+icon = "icon.png"
+
+# No hard dependency: the text format parser the mod uses is bundled, so the jar is self-contained.

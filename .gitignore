@@ -1,0 +1,24 @@
+# Build output
+build/
+out/
+.gradle/
+
+# Locally built jars; they are attached to a release rather than committed.
+dist/
+
+# Run directories
+run/
+run-server/
+run-data/
+run-server-smoke/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

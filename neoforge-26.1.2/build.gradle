@@ -1,0 +1,159 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'eclipse'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'me.modmuss50.mod-publish-plugin' version '2.2.1'
+}
+
+// Everything that is not specific to this game version lives in the repository root, so the three
+// builds cannot drift apart.
+def shared = new Properties()
+file("${rootDir}/../gradle.properties").withInputStream { shared.load(it) }
+
+ext {
+    mod_id = shared['mod_id']
+    mod_name = shared['mod_name']
+    mod_license = shared['mod_license']
+    mod_version = shared['mod_version']
+    mod_authors = shared['mod_authors']
+    mod_description = shared['mod_description']
+    project_url = shared['project_url']
+    issues_url = shared['issues_url']
+    original_project_url = shared['original_project_url']
+    curseforge_project_id = shared['curseforge_project_id']
+    modrinth_project_id = shared['modrinth_project_id']
+    is_stable = shared['is_stable']
+}
+
+version = mod_version
+group = 'dev.stylednicknames'
+
+base {
+    archivesName = "${mod_id}-${minecraft_version}-${loader}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(java_version))
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+// The mod itself is version independent and lives in ../common; only the platform glue in
+// src/main/java changes between game versions. The templates folder holds the metadata files that
+// differ between loaders, with their ${...} placeholders filled in by processResources.
+sourceSets {
+    main {
+        java.srcDir "${rootDir}/../common/src/main/java"
+        resources.srcDir "${rootDir}/../common/src/main/resources"
+    }
+}
+
+// Only the metadata files come from the templates folder, with their ${...} placeholders filled in
+// by processResources; the license is attached to the jar separately.
+def templates = sourceSets.main.resources.srcDir("${rootDir}/../common/src/main/templates")
+templates.exclude 'LICENSE'
+templates.exclude 'META-INF/mods.toml'
+
+neoForge {
+    version = neoforge_version
+
+    runs {
+        client {
+            client()
+            gameDirectory = project.file('run')
+        }
+
+        server {
+            server()
+            gameDirectory = project.file('run-server')
+            programArgument '--nogui'
+        }
+
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+            project_url            : project_url,
+            issues_url             : issues_url,
+            original_project_url   : original_project_url,
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            language_provider_version: language_provider_version,
+            neoforge_version_range : neoforge_version_range,
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/neoforge.mods.toml', 'modrinth.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    // CurseForge and Modrinth want "{mod id}-{version}-{loader}.jar".
+    archiveFileName = "${mod_id}-${mod_version}-${loader}.jar"
+
+    // The license ships under the name of the project it belongs to, so that GitHub and the mod
+    // pages can tell which license is whose.
+    from("${rootDir}/../common/src/main/templates/LICENSE") {
+        rename { "${it}_${mod_id}" }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = Integer.parseInt(java_version)
+}
+
+// ---------------------------------------------------------------- publishing --
+// Tokens come from the environment so that nothing secret ends up in the repository:
+//
+//   CURSEFORGE_API_TOKEN   -> https://www.curseforge.com/account/api-tokens
+//   MODRINTH_API_TOKEN     -> https://modrinth.com/settings/pats
+//   CHANGELOG              -> optional release notes
+//
+// Then:  ./gradlew build publishMods
+publishMods {
+    changelog = System.getenv('CHANGELOG') ?: ''
+    type = is_stable == 'true' && !mod_version.contains('-') ? STABLE : BETA
+    file = tasks.jar.archiveFile
+    modLoaders.add(loader)
+
+    if (System.getenv('CURSEFORGE_API_TOKEN') && project.curseforge_project_id) {
+        curseforge {
+            projectId = project.curseforge_project_id
+            accessToken = System.getenv('CURSEFORGE_API_TOKEN')
+            client = true
+            server = true
+            minecraftVersions.add(minecraft_version)
+        }
+    }
+
+    if (System.getenv('MODRINTH_API_TOKEN') && project.modrinth_project_id) {
+        modrinth {
+            projectId = project.modrinth_project_id
+            accessToken = System.getenv('MODRINTH_API_TOKEN')
+            minecraftVersions.add(minecraft_version)
+        }
+    }
+}
